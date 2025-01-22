@@ -1,0 +1,62 @@
+---
+title: "US Hate Crime Maps"
+output: 
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r setup, include = FALSE}
+# Work by Adam
+# load packages
+library(tidyverse)
+library(kableExtra)
+
+library(sf)
+library(viridis)
+library(leaflet)
+
+# set code chunk defaults
+knitr::opts_chunk$set(tidy = F, # display code as typed
+                      size = "small", # slightly smaller code font
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = "\t") 
+
+# set black & white default plot theme
+theme_set(theme_classic()) 
+
+# improve digit and NA display 
+options(scipen = 1, knitr.kable.NA = '')
+```
+
+#Percent Change in Hate Crime from 2019-2020 in the USA
+```{r}
+# Load data
+hate_crime <- read_csv("hate-crime-all.csv")
+
+#Wrangling/renaming
+hate_crime$state_name = tolower(hate_crime$state_name)
+
+# Load state map info
+state_map <- maps::map("state", plot = FALSE, fill = TRUE) %>%
+st_as_sf()
+
+#Joining the two data sets
+hate_crime_USA <- state_map %>%
+left_join(hate_crime, by = c("ID" = "state_name"))
+
+#Map of the USA
+ggplot(hate_crime_USA) +
+geom_sf(aes(fill = percent_change_all)) +
+scale_fill_viridis(option = "turbo") +
+theme_void() +
+labs(title = "Percent Change in Race-Based Hate Crime by State",
+subtitle = "From 2019-2020",
+fill = "Percent Change")
+```
+This map shows the percent change in hate crime from 2019-2020 in the USA. We learned from this visual that most states seemed to have an increase in hate crime from 2019-2020. Also, we noticed that there is not any data from Alabama in 2019, and we found that there were only 2 out of 430 agencies that reported that year. This means that the data was either lost somewhere, or it's more likely that these agencies didn't report on purpose which is strange and concerning. The percent change doesn't show up on the map because there is no point to calculate it when there is no change that we can calculate.
+
+=======
+```
+>>>>>>> 227aa4dc62ee70a325bc2be2c0b80c4dcb718048

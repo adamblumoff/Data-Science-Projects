@@ -1,0 +1,79 @@
+---
+title: "Hate Crime Totals"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Work by Deon & Helen
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+library(robotstxt) 
+library(rvest) 
+library(dplyr)
+```
+
+
+```{r, eval=TRUE}
+hate_crime_raw <- read_csv("hate-crime-all.csv")
+
+#Calculated sum total of all hate crimes and put into a dataframe
+total_sum <- (colSums(hate_crime_raw[2:21], na.rm = TRUE))
+
+hate_crimes_totals <- as.data.frame(total_sum) %>%
+  transpose() %>%
+   as.data.frame()
+
+
+#Renamed and added variables to better align with the hate crimes all dataset
+colnames(hate_crimes_totals) <- c("anti_american_indian_or_alaska_native_2019",
+  "anti_black_or_african_american_2019", "anti_other_race_ethnicity_ancestry_2019", "anti_hispanic_or_latino_2019",
+  "anti_multiple_races_group_2019", "anti_white_2019", "anti_arab_2019", "anti_asian_2019", "anti_native_hawaiian_or_other_pacific_islander_2019",
+  "all_hate_crimes_2019", "anti_black_or_african_american_2020", "anti_white_2020", "anti_american_indian_or_alaska_native_2020", "anti_arab_2020", "anti_asian_2020","anti_hispanic_or_latino_2020", "anti_multiple_races_group_2020", "anti_other_race_ethnicity_ancestry_2020", "anti_native_hawaiian_or_other_pacific_islander_2020", "all_hate_crimes_2020")
+
+hate_crimes_totals <-hate_crimes_totals %>% 
+  mutate(percent_change_all = 100 * ((all_hate_crimes_2020-all_hate_crimes_2019)/(all_hate_crimes_2019)),
+         state_name = "United States")
+
+
+#Combine the two datasets
+hate_crime_total_us <- rbind(hate_crime_raw[-c(51), ], hate_crimes_totals) 
+
+
+hate_crime_type <- hate_crimes_totals %>%
+  pivot_longer(
+    cols = starts_with('anti'),
+    names_to = c("Type"),
+    values_to = "Count") %>%
+  select("Type", "Count") %>%
+  separate("Type",
+           into = c("Type", "Year"),
+           sep = "_2",
+           remove = FALSE) %>%
+  select("Type", "Count", "Year") %>%
+  mutate(Year = paste0("2", Year)) %>%
+  # Clean Type Names
+  mutate(Type = case_when(
+    Type %in% "anti_american_indian_or_alaska_native" ~ "Anti Native American",
+    Type %in% "anti_arab" ~ "Anti Arab", Type %in% "anti_asian" ~ "Anti Asian",
+    Type %in% "anti_black_or_african_american" ~ "Anti Black", 
+    Type %in% "anti_hispanic_or_latino" ~ "Anti Hispanic/Latino",
+    Type %in% "anti_multiple_races_group" ~ "Anti Multiple Races",
+    Type %in% "anti_native_hawaiian_or_other_pacific_islander" ~ "Anti Pacific Islander",
+    Type %in% "anti_other_race_ethnicity_ancestry" ~ "Anti other race",
+    TRUE ~ "Anti White"))
+   
+```
+
+```{r, fig.width = 6.5, fig.height = 4}
+ggplot(hate_crime_type, aes(reorder(factor(Type), Count), Count, fill = Year)) +
+geom_bar(stat="identity", position = "dodge") +
+scale_fill_brewer(palette = "Set1") +
+labs(title = "Change in Hate Crimes based on Race",
+     subtitle = "Data from FBI (2019-2020)",
+x = "Hate Crime Type",
+y = "Count") +
+  coord_flip()
+```
+
+

@@ -1,0 +1,297 @@
+---
+title: "3Lattes Clustering Analysis"
+subtitle: "Group Members: Adam, Helen, and Deon"
+output: 
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r setup, include=FALSE}
+# load packages
+library(tidyverse)
+library(kableExtra)
+library(ggrepel)
+library(mclust)
+library(cluster)
+library(factoextra)
+
+# set black & white default plot theme
+theme_set(theme_classic()) 
+```
+
+```{r}
+# Read dataset
+state_income_race <- read.csv("state_income_race.csv")
+```
+
+# Hate Crime and Income
+
+```{r, fig.width = 6.5, fig.height = 4}}
+income_sample <- state_income_race %>%
+  filter(state_name != "United States")
+
+ggplot(data = income_sample, aes(x = median_annual_household_income, y = percent_change_all)) +
+  geom_smooth(method='lm', se = FALSE, color = "#006000") +
+  geom_point() + 
+  geom_text_repel(aes(label = state_name), size = 3) +
+  labs(x = "Median Annual Household Income (US$) (2019)", 
+       y = "Change in Race Based Hate Crime between 2019-2020 (%)",
+       title = "Relationship between Hate Crime and Income",
+       subtitle = "Data from FBI")
+```
+
+## K-means
+
+```{r, fig.width = 6.5, fig.height = 4}
+income_sample_scaled <- income_sample %>%
+   mutate(across(white:percent_change_all, ~ as.numeric(.)),
+         # Standardize or scale() numeric variables (subtract mean and divide by SD)
+         across(where(is.numeric),  ~ scale(.)[,1], .names = "{.col}_scaled"))
+
+set.seed(21)
+clustering_vars <- c("median_annual_household_income_scaled", "percent_change_all_scaled")
+income_km4 <- income_sample_scaled %>% 
+  select(clustering_vars) %>% 
+  kmeans(centers = 4, nstart = 20)
+
+# Vector of cluster assignments
+income_km4$cluster
+
+# The centroids for the fit
+income_km4$centers
+
+# Add cluster assignment to the data frame
+income_sample_scaled <- income_sample_scaled %>%
+  mutate(clusters4 = factor(income_km4$cluster)) 
+
+# Visualize the cluster assignments and centroids
+ggplot(data = income_sample_scaled, aes(x = median_annual_household_income_scaled, y = percent_change_all_scaled)) + 
+  geom_point(aes(color = clusters4)) +
+  geom_text_repel(aes(label = state_name, color = clusters4), size = 3) +
+  geom_point(data = data.frame(income_km4$centers),
+             aes(x = median_annual_household_income_scaled, y = percent_change_all_scaled),
+             pch = "x", size = 8) +
+  labs(x = "Median Annual Household Income (scaled) (2019)", 
+       y = "Change in Race Based Hate Crime between 2019-2020 (scaled)",
+       title = "Relationship between Hate Crime and Income (k-means clustering)",
+       subtitle = "Data from FBI",
+       color = "Cluster Assignment")
+```
+
+```{r}
+# Make elbow plot to determine which k to use
+elbow_plot <- data.frame(clusters = 1:10,
+                         within_ss = rep(NA, 10))
+
+set.seed(21)
+for (i in 1:10){
+  income_kmi_out <- income_sample_scaled %>% 
+    select(clustering_vars) %>% 
+    kmeans(centers = i, nstart = 20)
+  
+  elbow_plot$within_ss[i] <- income_kmi_out$tot.withinss
+}
+
+# Construct elbow plot
+ggplot(elbow_plot, aes(x = clusters, y = within_ss)) +
+  geom_point() + 
+  geom_line() +
+  scale_x_continuous(breaks = 1:10) +
+  labs(x = "Number of clusters (k)", y = expression("Total W"[k]))
+```
+
+## mclust
+
+```{r}
+incomesub <- income_sample %>% select(median_annual_household_income, percent_change_all)
+mclustsol <- mclustBIC(incomesub)
+plot(mclustsol)
+summary(mclustsol)
+
+income_mclust <- Mclust(incomesub, x = mclustsol)
+summary(income_mclust, parameters = TRUE)
+plot(income_mclust, what = "classification")
+```
+
+Picks best model based on Baysian Information Criteria, a goodness of fit statistic. kmeans, within sum of squares is low, while mclust uses mixture models (m is for model), assumes that the clusters (as they exist) are all multivariate normal distributions.
+
+```{r}
+# Plots mclust clusters using ggplot
+income_sample_mclust <- income_sample %>%
+  mutate(mclust_class = as.character(income_mclust$classification)) 
+
+# Find centers for each cluster
+income_center_x <- income_mclust$parameters$mean[c(1,3)]
+income_center_y <- income_mclust$parameters$mean[c(2,4)]
+income_center <- data.frame(income_center_x, income_center_y)
+
+ggplot(data = income_sample_mclust, aes(x = median_annual_household_income, y = percent_change_all)) + 
+  geom_point(aes(color = mclust_class)) +
+  geom_text_repel(aes(label = state_name, color = mclust_class), size = 3) +
+  geom_point(data = income_center, aes(x = income_center_x, y = income_center_y),
+             pch = "x", size = 8) +
+  labs(x = "Median Annual Household Income (US$) (2019)", 
+       y = "Change in Race Based Hate Crime between 2019-2020 (%)",
+       title = "Relationship between Hate Crime and Income (mclust method)",
+       subtitle = "Data from FBI",
+       color = "Cluster Assignment")
+```
+
+# Hate Crime and Population
+
+```{r}
+population_sample <- state_income_race %>%
+  filter(state_name != "United States")
+
+ggplot(data = population_sample, aes(x = total, y = percent_change_all)) +
+  geom_smooth(method='lm', se = FALSE, color = "#006000") +
+  geom_point() + 
+  geom_text_repel(aes(label = state_name), size = 3) +
+  labs(x = "Population (2019)", 
+       y = "Change in Race Based Hate Crime between 2019-2020 (%)",
+       title = "Relationship between Hate Crime and Population",
+       subtitle = "Data from FBI")
+```
+
+```{r}
+# Anti African American Hate Crimes v Population
+ggplot(data = population_sample, aes(x = black, y = anti_black_or_african_american_2020)) +
+  geom_smooth(method='lm', se = FALSE, color = "#006000") +
+  geom_point() + 
+  geom_text_repel(aes(label = state_name), size = 3) +
+  labs(x = "African American Population (2019)", 
+       y = "Count of Anti Anti Black or African American Hate Crimes (2020)",
+       title = "Relationship between Hate Crime and Population (African American)",
+       subtitle = "Data from FBI")
+```
+
+```{r}
+# Anti Asian Hate Crimes v Population
+ggplot(data = population_sample, aes(x = asian, y = anti_asian_2020)) +
+  geom_smooth(method='lm', se = FALSE, color = "#006000") +
+  geom_point() + 
+  geom_text_repel(aes(label = state_name), size = 3) +
+  labs(x = "Asian Population (2019)", 
+       y = "Count of Anti Asian Hate Crimes (2020)",
+       title = "Relationship between Hate Crime and Population (Asian)",
+       subtitle = "Data from FBI")
+```
+```{r}
+# Anti White Hate Crime v Population
+ggplot(data = population_sample, aes(x = white, y = anti_white_2020)) +
+  geom_smooth(method='lm', se = FALSE, color = "#006000") +
+  geom_point() + 
+  geom_text_repel(aes(label = state_name), size = 3) +
+  labs(x = "White Population (2019)", 
+       y = "Count of Anti White Hate Crimes (2020)",
+       title = "Relationship between Hate Crime and Population (White)",
+       subtitle = "Data from FBI")
+```
+
+```{r}
+# Anti Hispanic Hate Crime v Population
+ggplot(data = population_sample, aes(x = hispanic, y = anti_hispanic_or_latino_2020)) +
+  geom_smooth(method='lm', se = FALSE, color = "#006000") +
+  geom_point() + 
+  geom_text_repel(aes(label = state_name), size = 3) +
+  labs(x = "Hispanic or Latino Population (2019)", 
+       y = "Count of Anti Hispanic or Latino Hate Crimes (2020)",
+       title = "Relationship between Hate Crime and Population (Hispanic or Latino)",
+       subtitle = "Data from FBI")
+```
+
+## K-means
+
+```{r, fig.width = 6.5, fig.height = 4}
+population_sample_scaled <- population_sample %>%
+   mutate(across(white:percent_change_all, ~ as.numeric(.)),
+         # Standardize or scale() numeric variables (subtract mean and divide by SD)
+         across(where(is.numeric),  ~ scale(.)[,1], .names = "{.col}_scaled"))
+
+set.seed(21)
+clustering_vars <- c("total_scaled", "percent_change_all_scaled")
+population_km5<- population_sample_scaled %>% 
+  select(clustering_vars) %>% 
+  kmeans(centers = 5, nstart = 20)
+
+# Vector of cluster assignments
+population_km5$cluster
+
+# The centroids for the fit
+population_km5$centers
+
+# Add cluster assignment to the data frame
+population_sample_scaled <- population_sample_scaled %>%
+  mutate(clusters5 = factor(population_km5$cluster)) 
+
+# Visualize the cluster assignments and centroids
+ggplot(data = population_sample_scaled, aes(x = total_scaled, y = percent_change_all_scaled)) + 
+  geom_point(aes(color = clusters5)) +
+  geom_text_repel(aes(label = state_name, color = clusters5), size = 3) +
+  geom_point(data = data.frame(population_km5$centers),
+             aes(x = total_scaled, y = percent_change_all_scaled),
+             pch = "x", size = 8) +
+  labs(x = "Population (scaled) (2019)", 
+       y = "Change in Race Based Hate Crime between 2019-2020 (scaled)",
+       title = "Relationship between Hate Crime and Population (k-means clustering)",
+       subtitle = "Data from FBI",
+       color = "Cluster Assignment")
+```
+
+```{r}
+# Make elbow plot to determine which k to use
+elbow_plot <- data.frame(clusters = 1:10,
+                         within_ss = rep(NA, 10))
+
+set.seed(21)
+for (i in 1:10){
+  income_kmi_out <- income_sample_scaled %>% 
+    select(clustering_vars) %>% 
+    kmeans(centers = i, nstart = 20)
+  
+  elbow_plot$within_ss[i] <- income_kmi_out$tot.withinss
+}
+
+# Construct elbow plot
+ggplot(elbow_plot, aes(x = clusters, y = within_ss)) +
+  geom_point() + 
+  geom_line() +
+  scale_x_continuous(breaks = 1:10) +
+  labs(x = "Number of clusters (k)", y = expression("Total W"[k]))
+```
+
+## mclust
+
+```{r}
+populationsub <- population_sample %>% select(total, percent_change_all)
+mclustsol <- mclustBIC(populationsub)
+plot(mclustsol)
+summary(mclustsol)
+
+population_mclust <- Mclust(populationsub, x = mclustsol)
+summary(population_mclust, parameters = TRUE)
+plot(population_mclust, what = "classification")
+```
+
+```{r}
+# Plots mclust clusters using ggplot
+population_sample_mclust <- population_sample %>%
+  mutate(mclust_class = as.character(population_mclust$classification))
+
+# Find centers for each cluster
+population_center_x <- population_mclust$parameters$mean[c(1,3,5)]
+population_center_y <- population_mclust$parameters$mean[c(2,4,6)]
+population_center <- data.frame(population_center_x, population_center_y)
+
+ggplot(data = population_sample_mclust, aes(x = total, y = percent_change_all)) + 
+  geom_point(aes(color = mclust_class)) +
+  geom_text_repel(aes(label = state_name, color = mclust_class), size = 3) +
+  geom_point(data = population_center, aes(x = population_center_x, y = population_center_y),
+             pch = "x", size = 8) +
+  labs(x = "Population (2019)", 
+       y = "Change in Race Based Hate Crime between 2019-2020 (%)",
+       title = "Relationship between Hate Crime and Population (mclust method)",
+       subtitle = "Data from FBI",
+       color = "Cluster Assignment")
+```

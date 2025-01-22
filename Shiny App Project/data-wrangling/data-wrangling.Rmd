@@ -1,0 +1,80 @@
+---
+title: "Data Wrangling Process - 3Lattes"
+output: 
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r setup, include=FALSE}
+# Work by Helen
+# Load in packages
+library(tidyverse)
+library(kableExtra)
+library(robotstxt) 
+library(rvest) 
+```
+
+# Introduction
+
+For our Shiny app project, we are looking at data from 3 sports (basketball, football, and baseball) in 2019. The app will have 3 separate tabs for each sport and allows the user to change the x and y axis variables based on the variables they select and are able to search for a specific player. We prepared 5 datasets in total. One for basketball, one for football, and three for baseball. The following is how we got the raw data and wrangled them into the datasets we will use for our Shiny app.
+
+# Data Scraping
+
+We determined that the basketball and football data will be scraped from online. We used data from the Basketball reference website (https://www.basketball-reference.com/leagues/NBA_2020_per_game.html#per_game_stats) for 2019-20 NBA player statistics and the Pro Football reference website (https://www.pro-football-reference.com/years/2019/scrimmage.htm#receiving_and_rushing) for the 2019 NFL scrimmage statistics. The final csv files for the raw datasets are found in the "data" folder under the "data-scraping" folder (which include the R scripts for data scraping) with the names "basketball.csv" and "football.csv". We copied these two raw datasets to the "data-wrangling" folder for simpler access when wrangling.
+
+```{r}
+# Glimpse of basketball and football raw datasets
+basketball <- read_csv("data/basketball-wrangled.csv")
+glimpse(basketball)
+
+football <- read_csv("data/football-wrangled.csv")
+glimpse(football)
+```
+
+# Data Wrangling
+
+## Basketball
+
+In the "data-wrangling" folder, the R script "wrangle-basketball" includes the code that selects certain columns and outputs the wrangled dataset as "basketball-wrangled" in the "data" folder. Since some players had multiple observations (due to them being in more than one team), we merged them together to one observation and found the weighted average of the per game variables. The variables we chose to keep can be divided into two purposes: player background & player performance. For player background, we kept the variables Player (name) and Age. For player performance, we selected the variables Games, Games Started, and others that were on a per game denominator. This includes Minutes Played per game, Field Goal per game, 3point Field Goal per game, 2point Field Goal per game, Free Throws per game, Total Rebounds per game, Assists per game, Steals per game, Blocks per game, Turnovers per game, Personal Fouls per game, and Points per game.
+
+```{r}
+# Work by Helen
+# Glimpse of wrangled basketball dataset
+basketball_wrangled <- read_csv("data/basketball-wrangled.csv")
+glimpse(basketball_wrangled)
+```
+
+## Football
+
+ 
+Similar to how we wrangled the basketball dataset, in the "data-wrangling" folder, the R script "wrangle-football" includes the code that selects certain columns and outputs the wrangled dataset as "football-wrangled" in the "data" folder. An issue we ran into was how the raw dataset's real column names was in the 1st row, thus, we switched the column names to the first row and deleted the row. Another issue is that there were 5 pairs of duplicate variable names, which made manipulating the datafile before renaming the variables impossible. So, we just renamed the variables here before choosing the desired ones. The variables can also be categorized as relating to player background and player performance. For performance variables not in a per game format, we created new variables by dividing those by total number of games played. The player background variables include Player, Team, Age, and Position. The player performance variables include "Receptions_per_Game", "Receiving_Yards_per_Game", "Rushing_Yards_per_Game", and "Rushing Attempts_per_Game".
+
+
+```{r}
+# Work by Deon
+# Glimpse of wrangled football dataset
+football_wrangled <- read_csv("data/football-wrangled.csv")
+glimpse(football_wrangled)
+```
+
+## Baseball
+
+We used the People, Fielding, Pitching, and Batting datasets from the Lahman package to create 3 different, wrangled, datasets. This is because they include different variables for different positions. The R script "wrangle-baseball" includes code that filters the observations for players statistics in 2019, merges the players with multiple observations (caused by them being in multiple teams throughout the year), and outputs the wrangled data sets as "baseball-fielding-wrangled", "baseball-pitching-wrangled", and "baseball-batting-wrangled". For all 3 datasets, the variables that relate to a player's background is their Player ID, Player (name), Year, and TeamID. For the wrangled fielding dataset we picked the variables Games, Games Started, Time played in field, Putouts, Assists, Errors, Double Plays, Passed Balls, Wild Pitches, Opponent Stolen Bases, Opponents Caught Stealing, and Zone Rating. The wrangled pitching dataset includes Wins, Losses, Games, Games Started, Complete Games, Shutouts, Saves, Outs Pitched, Hits, Earned Runs, Homeruns, Walks, Strikeouts, Opponent's Batting Average, Earned Run Average, Intentional Walks, Wild Pitches, Batters Hit by Pitch, Balks, Batters faced by Pitcher, Games Finished, Runs Allowed, Sacrifices by opposing batters, Sacrifice flied by opposing batters, and Grounded into double plays by opposing batter. Finally, the wrangled batting dataset includes Games, At Bats, Runs, Hits, Doubles, Triples, Homeruns, Runs Batted In, Stolen Bases, Caught Stealing, Base on Balls, Strikeouts, Intentional Walks and Hit by Pitch.
+
+```{r}
+# Work by Adam
+# Glimpse of wrangled baseball datasets
+batting_wrangled <- read_csv("data/batting-wrangled.csv")
+glimpse(batting_wrangled)
+
+fielding_wrangled <- read_csv("data/fielding-wrangled.csv")
+glimpse(fielding_wrangled)
+
+pitching_wrangled <- read_csv("data/pitching-wrangled.csv")
+glimpse(pitching_wrangled)
+```
+
+# Conclusion
+
+When selecting the variables, we tried to make them on a per game basis. However, we were only able to do this for our Basketball and Football datasets, whereas the Baseball datasets are either in total numbers or averages. We determined that the complete names are needed in the drop down boxes of the Shiny app, which we will specify in the Shiny app code.
